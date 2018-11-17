@@ -3,8 +3,7 @@ import re
 import json 
 from requests.exceptions import RequestException
 import time
-
-pattern = """<dd>.*?board-index.*?>(.*?)</i>.*?data-src="(.*?)".*?name.*?a.*?>(.*?)</a> """
+from bs4 import BeautifulSoup
 
 def get_one_page(url):
     try:
@@ -19,19 +18,30 @@ def get_one_page(url):
         return None 
 
 def parse_one_page(html):
-    pattern = re.compile('<dd>.*?board-index.*?>(\d+)</i>.*?data-src="(.*?)".*?name"><a'
-                         + '.*?>(.*?)</a>.*?star">(.*?)</p>.*?releasetime">(.*?)</p>'
-                         + '.*?integer">(.*?)</i>.*?fraction">(.*?)</i>.*?</dd>', re.S)
-    items = re.findall(pattern, html)
-    for item in items:
+    soup = BeautifulSoup(html, 'lxml')
+    for item in soup.find_all(name='dd'):
         yield {
-            'index': item[0],
-            'image': item[1],
-            'title': item[2],
-            'actor': item[3].strip()[3:],
-            'time': item[4].strip()[5:],
-            'score': item[5] + item[6]
+            'index': item.i.text,
+            'image': item.a.find_all(attrs = {'class': 'board-img'})[0].attrs['data-src'],
+            'title': item.a.attrs['title'],
+            'actor': item.find(attrs={'class': 'star'}).text.strip()[3:],
+            'time': item.find(attrs={'class': 'releasetime'}).text.strip()[5:],
+            'score': item.find(attrs={'class': 'integer'}).text + item.find(attrs={'class': 'fraction'}).text
         }
+
+    # pattern = re.compile('<dd>.*?board-index.*?>(\d+)</i>.*?data-src="(.*?)".*?name"><a'
+    #                      + '.*?>(.*?)</a>.*?star">(.*?)</p>.*?releasetime">(.*?)</p>'
+    #                      + '.*?integer">(.*?)</i>.*?fraction">(.*?)</i>.*?</dd>', re.S)
+    # items = re.findall(pattern, html)
+    # for item in items:
+    #     yield {
+    #         'index': item[0],
+    #         'image': item[1],
+    #         'title': item[2],
+    #         'actor': item[3].strip()[3:],
+    #         'time': item[4].strip()[5:],
+    #         'score': item[5] + item[6]
+    #     }
 
 def write_to_file(content):
     with open('result.txt', 'a', encoding='utf-8') as f:
